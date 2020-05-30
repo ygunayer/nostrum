@@ -5,6 +5,7 @@ defmodule Nostrum.Struct.Guild do
 
   alias Nostrum.Struct.{Channel, Emoji}
   alias Nostrum.Struct.Guild.{Member, Role}
+  alias Nostrum.Struct.Guild.Voice
   alias Nostrum.{Constants, Snowflake, Util}
 
   defstruct [
@@ -125,8 +126,8 @@ defmodule Nostrum.Struct.Guild do
   @typedoc "Total number of members in the guild"
   @type member_count :: integer | nil
 
-  @typedoc "List of voice states as maps"
-  @type voice_states :: list(map) | nil
+  @typedoc "List of voice states as map of user IDs to states"
+  @type voice_states :: %{required(User.id()) => Voice.State.t()} | nil
 
   @typedoc "List of members"
   @type members :: %{required(User.id()) => Member.t()} | nil
@@ -350,6 +351,11 @@ defmodule Nostrum.Struct.Guild do
       |> Map.update(:system_channel_id, nil, &Util.cast(&1, Snowflake))
       |> Map.update(:members, nil, &Util.cast(&1, {:index, [:user, :id], {:struct, Member}}))
       |> Map.update(:channels, nil, &Util.cast(&1, {:index, [:id], {:struct, Channel}}))
+      |> Map.update(
+        :voice_states,
+        nil,
+        &Util.cast(&1, {:index, [:user_id], {:struct, Voice.State}})
+      )
 
     struct(__MODULE__, new)
   end

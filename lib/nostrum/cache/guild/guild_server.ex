@@ -124,6 +124,11 @@ defmodule Nostrum.Cache.Guild.GuildServer do
     call(guild_id, {:update, :emoji, guild_id, emojis})
   end
 
+  @doc false
+  def voice_state_update(guild_id, channel_id, voice_state) do
+    call(guild_id, {:update, :voice_state, channel_id, voice_state})
+  end
+
   def handle_call({:select, fun}, _from, state) do
     {:reply, fun.(state), state, :hibernate}
   end
@@ -203,6 +208,21 @@ defmodule Nostrum.Cache.Guild.GuildServer do
   def handle_call({:update, :emoji, guild_id, emojis}, _from, state) do
     old_emojis = state.emojis
     {:reply, {guild_id, old_emojis, emojis}, %{state | emojis: emojis}, :hibernate}
+  end
+
+  def handle_call(
+        {:update, :voice_state, channel_id, %{user_id: user_id} = voice_state},
+        _from,
+        state = %{voice_states: voice_states}
+      ) do
+    new_voice_states =
+      case channel_id do
+        nil -> Map.delete(voice_states, user_id)
+        _ -> Map.put(voice_states, user_id, Guild.Voice.State.to_struct(voice_state))
+      end
+
+    new_state = %{state | voice_states: new_voice_states}
+    {:reply, {state.id, voice_states, new_voice_states}, new_state, :hibernate}
   end
 
   def handle_cast({:chunk, :member, new_members}, %{members: members} = state) do

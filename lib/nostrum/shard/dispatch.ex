@@ -1,7 +1,7 @@
 defmodule Nostrum.Shard.Dispatch do
   @moduledoc false
 
-  alias Nostrum.Cache.{ChannelCache, PresenceCache, UserCache}
+  alias Nostrum.Cache.{GuildCache, ChannelCache, PresenceCache, UserCache}
   alias Nostrum.Cache.Guild.GuildServer
   alias Nostrum.Cache.Me
   alias Nostrum.Shard.Session
@@ -215,7 +215,25 @@ defmodule Nostrum.Shard.Dispatch do
     {event, UserCache.update(p), state}
   end
 
-  def handle_event(:VOICE_STATE_UPDATE = event, p, state), do: {event, p, state}
+  def handle_event(:VOICE_STATE_UPDATE = event, p, state) do
+    # Discord only sends guild_id when a user leaves a voice channel, in which case channel_id is null
+    # in other cases, guild_id instead is null, so we have to figure the corresponding guild_id based on channel_id
+    case p.channel_id do
+      nil ->
+        GuildServer.voice_state_update(p.guild_id, nil, p)
+
+      id ->
+        case ChannelCache.get(id) do
+          {:ok, channel} ->
+            GuildServer.voice_state_update(channel.guild_id, channel.id, p)
+
+          _ ->
+            Logger.warn("Failed to handle voice state update because channel #{id} was not found")
+        end
+    end
+
+    {event, p, state}
+  end
 
   def handle_event(:VOICE_SERVER_UPDATE = event, p, state), do: {event, p, state}
 
